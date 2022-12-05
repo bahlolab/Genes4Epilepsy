@@ -1,4 +1,4 @@
-# EpilepsyGenes
+# Genes4Epilepsy
 A curated list of monogenic epilepsy genes. 
 
 # Download
