@@ -1,0 +1,247 @@
+---
+title: "Genes4Epilepsy"
+subtitle: "A curated list of monogenic epilepsy genes"
+output: 
+    html_document:
+      theme: cerulean
+      self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+library(tidyverse)
+library(DT)
+```
+
+```{r}
+# Assumptions
+# 1) List TSV files named with format EpilepsyGenes_vYYYY-MM.tsv
+# 2) List TSV files have columns "HGNC_ID", "Gene", "Ensemble_ID", "Entrez_ID", "OMIM_ID", "Inheritance", "Phenotype(s)"
+
+# Usage
+# 1) Add new version of gene list
+# 2) "rm index_files -r"
+# 3) knit index.Rmd in Rstudio and check result
+# 4) "git add index.Rmd index.html index_files EpilepsyGenes_v*"
+# 5) "git commit -m 'updated to version <VERSION>'"
+# 6) "git push origin main"
+```
+
+```{r functions}
+
+ensembl_url <- function(id) {
+  str_c('<a href = "https://ensembl.org/Homo_sapiens/Gene/Summary?g=',
+        id, '" target="_blank">', id, '</a>')
+}
+entrez_url <- function(id) {
+  str_c('<a href = "https://www.ncbi.nlm.nih.gov/gene/?term=',
+        id, '" target="_blank">', id, '</a>')
+}
+omim_url <- function(id) {
+  str_c('<a href = "https://omim.org/entry/',
+        id, '" target="_blank">', id, '</a>')
+}
+hgnc_url <- function(id) {
+  str_c('<a href = "https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/',
+        id, '" target="_blank">', id, '</a>')
+}
+
+
+add_urls <- function(data) {
+   mutate(
+     data,
+     HGNC_ID     = hgnc_url(HGNC_ID),
+     Ensemble_ID = ensembl_url(Ensemble_ID),
+     Entrez_ID   = entrez_url(Entrez_ID),
+     OMIM_ID     = omim_url(OMIM_ID)
+   )
+}
+
+my_datatable <- function(data, filename) {
+  datatable(
+    data,
+    rownames = FALSE,
+    escape = FALSE,
+    filter = 'top',
+    extensions = 'Buttons',
+    options = list(
+      dom = 'rtipB',
+      buttons = list(
+        list(extend = 'csv',  filename=filename),
+        list(extend = 'excel',  filename=filename, title='')
+      ),
+      initComplete = htmlwidgets::JS(
+        "function(settings, json) {",
+        "$('body').css({'font-family': 'Helvetica'});",
+        "}"
+      )))
+}
+```
+
+
+```{r read_lists}
+all_lists <-
+  tibble(
+    filename = list.files('.', pattern = 'EpilepsyGenes_v.*.tsv', full.names = T),
+    version = str_extract(filename, 'v\\d{4}-\\d{2}(?=.tsv)')) %>% 
+  arrange(desc(version))%>% 
+  mutate(data = map(filename, 
+                    read_tsv,
+                    col_types = cols(
+                      HGNC_ID = col_character(),
+                      Gene = col_character(),
+                      Ensemble_ID = col_character(),
+                      Entrez_ID = col_integer(),
+                      OMIM_ID = col_integer(),
+                      Inheritance = col_character(),
+                      `Phenotype(s)` = col_character()),
+                    col_select = c(
+                      Gene,
+                      HGNC_ID,
+                      Ensemble_ID,
+                      Entrez_ID,
+                      OMIM_ID,
+                      Inheritance,
+                      `Phenotype(s)`),
+                    ),
+         length = map_int(data, nrow))
+
+curr_ver <- all_lists$version[1]
+```
+## `r curr_ver`
+
+```{r datatables, results='asis', eval=FALSE}
+
+all_lists %>% 
+  filter(version == ver) %>% 
+  select(data) %>% 
+  unnest(data) %>% 
+  add_urls() %>% 
+  arrange(Gene) %>% 
+  my_datatable(str_c('Genes4Epilepsy_', curr_ver))
+
+```
+
+
+```{r datatables_panelapp, results='asis'}
+if (!require(cavalier)) {
+ stop(str_c('Cavalier not installed - install with "devtools::install_github(\'jemunro/cavalier@dev\')"'))
+}
+# get the latest PanelApp panels
+panel_app <-
+  bind_rows(
+  cavalier::get_panelapp_panels('PAA'),
+  cavalier::get_panelapp_panels('PAE')) %>% 
+  select(id, version) %>% 
+  filter(id %in% c('PAA:202', 'PAE:402')) %>% 
+  pmap_df(function(id, version) {
+    cavalier::get_panelapp_gene_list(id, version = version, min_confidence = 0L)
+  }) %>% 
+  mutate(
+    text = if_else(list_id == 'PAA:202',
+                   'AU:202',
+                   'UK:402'),
+    url = str_c(
+      '<a href = "',
+      if_else(list_id == 'PAA:202', 
+              'https://panelapp.agha.umccr.org/panels/202/gene/',
+              'https://panelapp.genomicsengland.co.uk/panels/402/gene/'),
+      panelapp_symbol,
+      '" target="_blank">',
+      text, '</a>')) %>% 
+  select(HGNC_ID = hgnc_id, 
+         PanelApp = url) %>% 
+  chop(PanelApp) %>% 
+  mutate(PanelApp = map_chr(PanelApp, str_c, collapse = ' '))
+
+all_lists %>% 
+  filter(version == curr_ver) %>% 
+  select(data) %>% 
+  unnest(data) %>% 
+  left_join(panel_app, by = 'HGNC_ID') %>% 
+  add_urls() %>% 
+  arrange(Gene) %>% 
+  my_datatable(str_c('Genes4Epilepsy_', curr_ver))
+```
+
+
+## Changelog
+```{r changelog}
+
+all_lists %>% 
+  select(new_ver = version,
+         new_data = data) %>% 
+  mutate(old_ver = lead(new_ver),
+         old_data = lead(new_data)) %>% 
+  na.omit() %>% 
+  mutate(changes = map2(new_data, old_data, function(new_data, old_data) {
+    
+    added <-
+      new_data %>% 
+      anti_join(old_data, by = 'HGNC_ID') %>% 
+      mutate(change = 'ADDED')
+    
+    removed <-
+      old_data %>% 
+      anti_join(new_data, by = 'HGNC_ID') %>% 
+      mutate(change = 'REMOVED')
+    
+    updated <-
+      new_data %>% 
+      anti_join(old_data,
+                by = c("HGNC_ID",
+                       "Gene", 
+                       "Ensemble_ID",
+                       "Entrez_ID",
+                       "OMIM_ID",
+                       "Inheritance",
+                       "Phenotype(s)")) %>% 
+      anti_join(added, 
+                by = "HGNC_ID") %>% 
+      mutate(change = 'UPDATED')
+    
+    bind_rows(
+      added,
+      updated,
+      removed)
+    
+  })) %>% 
+  select(version = new_ver, changes) %>% 
+  unnest(changes) %>% 
+  select(version, change, everything()) %>% 
+  mutate(change = as.factor(change)) %>% 
+  add_urls() %>% 
+  my_datatable(str_c('Genes4Epilepsy_Changelog_v', curr_ver))
+
+```
+
+## All Versions TSV download
+```{r past_versions}
+all_lists %>% 
+  select(version, download = filename, length) %>% 
+  mutate(download = 
+           basename(download) %>% 
+           (function(x) 
+             str_c('<a href="/Genes4Epilepsy/', x, '" download>', x, '</a>')
+           )) %>% 
+  datatable(
+    escape = FALSE,
+    rownames = FALSE,
+    options = list(
+      dom = 'rtipB',
+      initComplete = htmlwidgets::JS(
+        "function(settings, json) {",
+        "$('body').css({'font-family': 'Helvetica'});",
+        "}"
+      )))
+
+```
+
+## Cite
+If you use this Genes4Epilepsy resource, please acknowledge by citing:  
+[Oliver KL, Scheffer IE, Bennett MF, Grinton BE, Bahlo M, Berkovic SF. Genes4Epilepsy: An epilepsy gene resource. Epilepsia. 2023 Feb 21. doi: 10.1111/epi.17547. Epub ahead of print. PMID: 36808730](https://onlinelibrary.wiley.com/doi/10.1111/epi.17547)
+
+  
