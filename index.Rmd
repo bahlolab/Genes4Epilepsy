@@ -245,7 +245,7 @@ all_lists %>%
 
 ## Cite
 If you use this Genes4Epilepsy resource, please acknowledge by citing:  
-[Oliver KL, Scheffer IE, Bennett MF, Grinton BE, Bahlo M, Berkovic SF. Genes4Epilepsy: An epilepsy gene resource. Epilepsia. 2023 Feb 21. doi: 10.1111/epi.17547. Epub ahead of print. PMID: 36808730](https://onlinelibrary.wiley.com/doi/10.1111/epi.17547)
+[Oliver KL, Scheffer IE, Bennett MF, Grinton BE, Bahlo M, Berkovic SF. Genes4Epilepsy: An epilepsy gene resource. Epilepsia. 2023 May;64(5):1368-1375. doi: 10.1111/epi.17547](https://onlinelibrary.wiley.com/doi/10.1111/epi.17547)
 
 This webpage developed by [Jacob E. Munro](https://orcid.org/0000-0002-2751-0989)
 
