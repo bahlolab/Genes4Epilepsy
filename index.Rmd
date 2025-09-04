@@ -23,7 +23,7 @@ library(DT)
 
 # Usage
 # 1) Add new version of gene list
-# 2) "rm index_files -r"
+# 2) "rm -r index_files"
 # 3) knit index.Rmd in Rstudio and check result
 # 4) "git add index.Rmd index.html index_files EpilepsyGenes_v*"
 # 5) "git commit -m 'updated to version <VERSION>'"
